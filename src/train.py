@@ -37,6 +37,7 @@ def greedy_action(network, state):
     with torch.no_grad():
         Q = network(torch.Tensor(state).unsqueeze(0).to(device))
         return torch.argmax(Q).item()
+        
 class DQN(nn.Module):
     def __init__(self, state_dim, nb_actions):
         super(DQN, self).__init__()
@@ -46,19 +47,13 @@ class DQN(nn.Module):
         self.fc4 = nn.Linear(128, nb_actions)
         self.relu = nn.ReLU()
         self.dropout = nn.Dropout(0.2)
-        self.batchnorm1 = nn.BatchNorm1d(128)
-        self.batchnorm2 = nn.BatchNorm1d(256)
-        self.batchnorm3 = nn.BatchNorm1d(128)
 
     def forward(self, x):
         x = self.relu(self.fc1(x))
-        x = self.batchnorm1(x)
         x = self.dropout(x)
         x = self.relu(self.fc2(x))
-        x = self.batchnorm2(x)
         x = self.dropout(x)
         x = self.relu(self.fc3(x))
-        x = self.batchnorm3(x)
         x = self.dropout(x)
         x = self.fc4(x)
         return x
@@ -77,7 +72,9 @@ config = {'nb_actions': nb_actions,
           'epsilon_decay_period': 10000,
           'epsilon_delay_decay': 2000,
           'batch_size': 256}
+
 model = DQN(state_dim,nb_actions)         
+
 class ProjectAgent:
     def __init__(self):
         device = "cuda" if next(model.parameters()).is_cuda else "cpu"
@@ -154,17 +151,17 @@ class ProjectAgent:
     def save(self, path):
       torch.save(self.model.state_dict(), path)
     def load(self):
-        self.model.load_state_dict(torch.load('src/dqn_agent_10.pth', map_location=device))
+        self.model.load_state_dict(torch.load('src/dqn_agent_200.pth', map_location=device))
         self.model.eval()
 
 
-
-
 if __name__ == "__main__":
-  pass
-    # model = DQN(state_dim,nb_actions)
-    # agent = ProjectAgent(config,model)
-    # print(config)
-    # max_episod = 10
-    # episode_return = agent.train(env, max_episod)
-    # agent.save(f'dqn_agent_{max_episod}.pth')
+    train = False
+    if train:
+        agent = ProjectAgent()
+        max_episod = 200
+        episode_return = agent.train(env, max_episod)
+        agent.save(f'dqn_agent_{max_episod}.pth')        
+    else:
+        pass
+
