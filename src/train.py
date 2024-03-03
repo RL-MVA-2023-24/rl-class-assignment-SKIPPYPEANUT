@@ -154,7 +154,7 @@ class ProjectAgent:
     def save(self, path):
       torch.save(self.model.state_dict(), path)
     def load(self):
-        self.model.load_state_dict(torch.load('dqn_agent_10.pth', map_location=device))
+        self.model.load_state_dict(torch.load('src/dqn_agent_10.pth', map_location=device))
         self.model.eval()
 
 
