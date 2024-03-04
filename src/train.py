@@ -184,15 +184,16 @@ class ProjectAgent:
     def save(self, path):
       torch.save(self.model.state_dict(), path)
     def load(self):
-        self.model.load_state_dict(torch.load('src/model_14.pth', map_location=device))
+        self.model.load_state_dict(torch.load('src/model.pth', map_location=device))
 
 
 if __name__ == "__main__":
-    train = True
+    train = False
     if train:
         agent = ProjectAgent()
-        nb_episodes = 100
+        # agent.load()
+        nb_episodes = 1000
         episode_return = agent.train(env, nb_episodes)
-        agent.save(f'/content/drive/MyDrive/RL/model.pth')
+        agent.save(f'model.pth')
     else:
         pass
