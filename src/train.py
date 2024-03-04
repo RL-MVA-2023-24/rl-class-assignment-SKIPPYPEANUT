@@ -38,17 +38,17 @@ def greedy_action(network, state):
     with torch.no_grad():
         Q = network(torch.Tensor(state).unsqueeze(0).to(device))
         return torch.argmax(Q).item()
-        
+
 class DQN(nn.Module):
     def __init__(self, state_dim, nb_actions):
         super(DQN, self).__init__()
-        self.fc1 = nn.Linear(state_dim, 256)
-        self.fc2 = nn.Linear(256, 256)
-        self.fc3 = nn.Linear(256, 256)
-        self.fc4 = nn.Linear(256, 256)
-        self.fc5 = nn.Linear(256, 256)
-        self.fc6 = nn.Linear(256, 256)
-        self.fc7 = nn.Linear(256, nb_actions)
+        self.fc1 = nn.Linear(state_dim, 512)
+        self.fc2 = nn.Linear(512, 512)
+        self.fc3 = nn.Linear(512, 512)
+        self.fc4 = nn.Linear(512, 512)
+        # self.fc5 = nn.Linear(512, 512)
+        # self.fc6 = nn.Linear(512, 512)
+        self.fc7 = nn.Linear(512, nb_actions)
         self.relu = nn.ReLU()
         # self.dropout = nn.Dropout(0.2)
 
@@ -58,8 +58,8 @@ class DQN(nn.Module):
         x = self.relu(self.fc2(x))
         x = self.relu(self.fc3(x))
         x = self.relu(self.fc4(x))
-        x = self.relu(self.fc5(x))
-        x = self.relu(self.fc6(x))
+        # x = self.relu(self.fc5(x))
+        # x = self.relu(self.fc6(x))
         x = self.fc7(x)
         return x
 
@@ -70,30 +70,30 @@ nb_neurons= 256
 
 # config = {'nb_actions': nb_actions,
 #           'learning_rate': 0.001,
-#           'gamma': 0.95,
+#           'gamma': 0.98,
 #           'buffer_size': 1000000,
 #           'epsilon_min': 0.01,
 #           'epsilon_max': 1.,
 #           'epsilon_decay_period': 10000,
-#           'epsilon_delay_decay': 2000,
-#           'batch_size': 256}
+#           'epsilon_delay_decay': 500,
+#           'batch_size': 512}
 
 config = {'nb_actions': nb_actions,
           'learning_rate': 0.001,
-          'gamma': 0.95,
+          'gamma': 0.98,
           'buffer_size': 1000000,
           'epsilon_min': 0.01,
           'epsilon_max': 1.,
           'epsilon_decay_period': 10000,
           'epsilon_delay_decay': 2000,
-          'batch_size': 128,
-          'nb_gradient_steps': 2,
+          'batch_size': 64,
+          'nb_gradient_steps': 1,
           # 'update_target_strategy': 'replace', # or 'ema'
           # 'update_target_freq': 50,
           'update_target_tau': 0.005,
           'criterion': torch.nn.SmoothL1Loss()}
 
-model = DQN(state_dim,nb_actions)         
+model = DQN(state_dim,nb_actions)
 
 class ProjectAgent:
     def __init__(self):
@@ -108,7 +108,7 @@ class ProjectAgent:
         self.epsilon_stop = config['epsilon_decay_period'] if 'epsilon_decay_period' in config.keys() else 1000
         self.epsilon_delay = config['epsilon_delay_decay'] if 'epsilon_delay_decay' in config.keys() else 20
         self.epsilon_step = (self.epsilon_max-self.epsilon_min)/self.epsilon_stop
-        self.model = model 
+        self.model = model
         self.target_model = deepcopy(self.model).to(device)
         self.criterion = config['criterion'] if 'criterion' in config.keys() else torch.nn.MSELoss()
         lr = config['learning_rate'] if 'learning_rate' in config.keys() else 0.001
@@ -117,7 +117,7 @@ class ProjectAgent:
         # self.update_target_strategy = config['update_target_strategy'] if 'update_target_strategy' in config.keys() else 'replace'
         # self.update_target_freq = config['update_target_freq'] if 'update_target_freq' in config.keys() else 20
         self.update_target_tau = config['update_target_tau'] if 'update_target_tau' in config.keys() else 0.005
-    
+
     def gradient_step(self):
         if len(self.memory) > self.batch_size:
             X, A, R, Y, D = self.memory.sample(self.batch_size)
@@ -127,8 +127,8 @@ class ProjectAgent:
             loss = self.criterion(QXA, update.unsqueeze(1))
             self.optimizer.zero_grad()
             loss.backward()
-            self.optimizer.step() 
-    
+            self.optimizer.step()
+
     def train(self, env, max_episode):
         episode_return = []
         episode = 0
@@ -136,6 +136,9 @@ class ProjectAgent:
         state, _ = env.reset()
         epsilon = self.epsilon_max
         step = 0
+
+        best_score = 0
+
         while episode < max_episode:
             # update epsilon
             if step > self.epsilon_delay:
@@ -150,11 +153,11 @@ class ProjectAgent:
             self.memory.append(state, action, reward, next_state, done)
             episode_cum_reward += reward
             # train
-            for _ in range(self.nb_gradient_steps): 
+            for _ in range(self.nb_gradient_steps):
                 self.gradient_step()
             # update target network if needed
             # if self.update_target_strategy == 'replace':
-            #     if step % self.update_target_freq == 0: 
+            #     if step % self.update_target_freq == 0:
             #         self.target_model.load_state_dict(self.model.state_dict())
             # if self.update_target_strategy == 'ema':
             target_state_dict = self.target_model.state_dict()
@@ -167,32 +170,35 @@ class ProjectAgent:
             step += 1
             if done or trunc:
                 episode += 1
-                print("Episode ", '{:3d}'.format(episode), 
-                      ", epsilon ", '{:6.2f}'.format(epsilon), 
-                      ", batch size ", '{:5d}'.format(len(self.memory)), 
+                print("Episode ", '{:3d}'.format(episode),
+                      ", epsilon ", '{:6.2f}'.format(epsilon),
+                      ", batch size ", '{:5d}'.format(len(self.memory)),
                       ", episode return ", '{:4.1f}'.format(episode_cum_reward),
                       sep='')
                 state, _ = env.reset()
                 episode_return.append(episode_cum_reward)
+                if episode_cum_reward > best_score : 
+                    best_score = episode_cum_reward
+                    torch.save(self.model.state_dict(),'/content/drive/MyDrive/best_model.pth')
                 episode_cum_reward = 0
             else:
                 state = next_state
         return episode_return
 
     def act(self, state):
-      return greedy_action(self.model, state)   
+      return greedy_action(self.model, state)
     def save(self, path):
       torch.save(self.model.state_dict(), path)
     def load(self):
-        self.model.load_state_dict(torch.load('src/model_400.pth', map_location=device))
+        self.model.load_state_dict(torch.load('src/best_model.pth', map_location=device))
 
 
 if __name__ == "__main__":
     train = False
     if train:
         agent = ProjectAgent()
-        nb_episodes = 100
+        nb_episodes = 1000
         episode_return = agent.train(env, nb_episodes)
-        agent.save(f'/content/drive/MyDrive/RL/model.pth')        
+        agent.save(f'/content/drive/MyDrive/model.pth')
     else:
         pass
