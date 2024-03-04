@@ -46,8 +46,8 @@ class DQN(nn.Module):
         self.fc2 = nn.Linear(512, 512)
         self.fc3 = nn.Linear(512, 512)
         self.fc4 = nn.Linear(512, 512)
-        # self.fc5 = nn.Linear(512, 512)
-        # self.fc6 = nn.Linear(512, 512)
+        self.fc5 = nn.Linear(512, 512)
+        self.fc6 = nn.Linear(512, 512)
         self.fc7 = nn.Linear(512, nb_actions)
         self.relu = nn.ReLU()
         # self.dropout = nn.Dropout(0.2)
@@ -58,15 +58,15 @@ class DQN(nn.Module):
         x = self.relu(self.fc2(x))
         x = self.relu(self.fc3(x))
         x = self.relu(self.fc4(x))
-        # x = self.relu(self.fc5(x))
-        # x = self.relu(self.fc6(x))
+        x = self.relu(self.fc5(x))
+        x = self.relu(self.fc6(x))
         x = self.fc7(x)
         return x
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 state_dim = env.observation_space.shape[0]
 nb_actions= env.action_space.n
-nb_neurons= 256
+# nb_neurons= 256
 
 # config = {'nb_actions': nb_actions,
 #           'learning_rate': 0.001,
@@ -85,12 +85,12 @@ config = {'nb_actions': nb_actions,
           'epsilon_min': 0.01,
           'epsilon_max': 1.,
           'epsilon_decay_period': 10000,
-          'epsilon_delay_decay': 2000,
-          'batch_size': 64,
-          'nb_gradient_steps': 1,
+          'epsilon_delay_decay': 1000,
+          'batch_size': 512,
+          'nb_gradient_steps': 2,
           # 'update_target_strategy': 'replace', # or 'ema'
           # 'update_target_freq': 50,
-          'update_target_tau': 0.005,
+          'update_target_tau': 0.001,
           'criterion': torch.nn.SmoothL1Loss()}
 
 model = DQN(state_dim,nb_actions)
@@ -136,9 +136,6 @@ class ProjectAgent:
         state, _ = env.reset()
         epsilon = self.epsilon_max
         step = 0
-
-        best_score = 0
-
         while episode < max_episode:
             # update epsilon
             if step > self.epsilon_delay:
@@ -177,9 +174,6 @@ class ProjectAgent:
                       sep='')
                 state, _ = env.reset()
                 episode_return.append(episode_cum_reward)
-                if episode_cum_reward > best_score : 
-                    best_score = episode_cum_reward
-                    torch.save(self.model.state_dict(),'/content/drive/MyDrive/best_model.pth')
                 episode_cum_reward = 0
             else:
                 state = next_state
@@ -190,15 +184,15 @@ class ProjectAgent:
     def save(self, path):
       torch.save(self.model.state_dict(), path)
     def load(self):
-        self.model.load_state_dict(torch.load('src/best_model.pth', map_location=device))
+        self.model.load_state_dict(torch.load('src/model_14.pth', map_location=device))
 
 
 if __name__ == "__main__":
-    train = False
+    train = True
     if train:
         agent = ProjectAgent()
-        nb_episodes = 1000
+        nb_episodes = 100
         episode_return = agent.train(env, nb_episodes)
-        agent.save(f'/content/drive/MyDrive/model.pth')
+        agent.save(f'/content/drive/MyDrive/RL/model.pth')
     else:
         pass
